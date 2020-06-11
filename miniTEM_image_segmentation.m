@@ -79,7 +79,7 @@ function miniTEM_image_segmentation_OpeningFcn(hObject, eventdata, handles, vara
 % varargin   command line arguments to miniTEM_image_segmentation (see VARARGIN)
 
 currentFolder = pwd;
-addpath([currentFolder '\bfmatlab'])
+addpath('C:\Users\andrb\Desktop\FinVector\bfmatlab')
 %addpath([currentFolder '\SRG'])
 addpath([currentFolder '\export_fig-master'])
 
