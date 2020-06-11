@@ -263,10 +263,6 @@ set(handles.add_label_button,'Visible','on')
 set(handles.remove_label,'Visible','on')
 set(handles.save_label_button,'Visible','on')
 
-set(handles.Add_debris_button,'Visible','off')
-set(handles.Remove_debris_button,'Visible','off')
-set(handles.Save_whole_label,'Visible','off')
-
 
 indx = handles.indx;
 data = handles.data{indx};
@@ -492,7 +488,7 @@ set(handles.save_label_button,'Visible','off')
 
 set(handles.Add_debris_button,'Visible','on')
 set(handles.Remove_debris_button,'Visible','on')
-set(handles.Save_whole_label,'Visible','on')
+set(handles.save_label_button,'Visible','on')
 
 f = waitbar(0.1,'Debris Segmentation in process...');
 
@@ -713,14 +709,6 @@ end
 if size(File,2) == 1
     return
 end
-
-set(handles.add_label_button,'Visible','off')
-set(handles.remove_label,'Visible','off')
-set(handles.save_label_button,'Visible','off')
-
-set(handles.Add_debris_button,'Visible','on')
-set(handles.Remove_debris_button,'Visible','on')
-set(handles.Save_whole_label,'Visible','on')
 
 mask = importdata(fullfile(pathname,File));
 % %% temporarly
