@@ -228,6 +228,13 @@ else
     axes(handles.Display)
     imshow(data,[])
     set(handles.Display,'xlim',[0 size(data,2)],'ylim',[0 size(data,1)])
+    set(handles.add_label_button,'Visible','off')
+    set(handles.remove_label,'Visible','off')
+    set(handles.save_label_button,'Visible','off')
+
+    set(handles.Add_debris_button,'Visible','off')
+    set(handles.Remove_debris_button,'Visible','off')
+    set(handles.Save_whole_label,'Visible','off')
 end
 
 guidata(hObject, handles);
