@@ -78,11 +78,14 @@ function miniTEM_image_segmentation_OpeningFcn(hObject, eventdata, handles, vara
 % handles    structure with handles and user data (see GUIDATA)
 % varargin   command line arguments to miniTEM_image_segmentation (see VARARGIN)
 
-currentFolder = pwd;
-addpath('C:\Users\andrb\Desktop\FinVector\bfmatlab')
-%addpath([currentFolder '\SRG'])
-addpath([currentFolder '\export_fig-master'])
 
+% add path to the bioformat loader
+addpath('C:\Users\andrb\Desktop\FinVector\bfmatlab')
+
+% add path to the figure export functions
+addpath('C:\Users\andrb\Desktop\FinVector\export_fig-master')
+
+% handles initiation
 handles.data = [];
 handles.indx = [];
 handles.file = [];
@@ -91,6 +94,7 @@ handles.label = [];
 handles.zoom.number = 1;
 handles.zoom.active = 0;
 
+% setting the position of the software window
 set(handles.Display,'Units', 'normalized');
 set(handles.Display,'Position', [0.23 0.2 0.75 0.75]);
 
@@ -125,13 +129,16 @@ function open_file_Callback(hObject, eventdata, handles)
 % hObject    handle to open_file (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+% Opening load window
 [Files, pathname]=uigetfile('*.ome.tif', 'Select files to load:','MultiSelect','on');
 
+% check if any file is selected
 if size(Files,2) == 1
     return
 end
     
-
+% initiation of wait bar if more than one file selected
 if iscell(Files)
     L = size(Files,2);
     f = waitbar(1/L,'Loading files');
@@ -140,6 +147,7 @@ else
     filename = Files;
 end
 
+% loading of the files + adding to the pup-up menu and file list
 for i = 1:L
     if iscell(Files)
         filename = Files{1,i};
@@ -149,11 +157,10 @@ for i = 1:L
     %save to the memory
     handles.data = [handles.data;{s1}];
 
-    %pop up
+    % Adding file to pop-up menu
     txt = get(handles.file_popup,'String');
     txt = [txt; {filename}];
     set(handles.file_popup,'String',txt);
-
 
     % Adding file to file list
     txt = get(handles.Files_listbox,'String');
@@ -166,14 +173,14 @@ for i = 1:L
     if iscell(Files)
         waitbar(i/L,f)
     end
-    
 end
 
+%close the waitbar
 if iscell(Files)
     close(f)
 end
 
-
+%store the handles
 guidata(hObject, handles);
 
 
@@ -208,12 +215,17 @@ function file_popup_Callback(hObject, eventdata, handles)
 
 % Hints: contents = cellstr(get(hObject,'String')) returns file_popup contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from file_popup
+
+% get the selected string and save to the handles
 contents = cellstr(get(hObject,'String'));
 display_choice = contents(get(hObject, 'Value'));
 handles.dispChoice = display_choice;
+
+% restart the saved segmentations of the adenoviruses and the whole label
 handles.virus = [];
 handles.label = [];
 
+%Display selected file
 if strcmp(handles.dispChoice, 'Select file...')
     set(get(gca,'children'),'Visible','off')
     handles.dispChoice = [];
@@ -228,6 +240,7 @@ else
     axes(handles.Display)
     imshow(data,[])
     set(handles.Display,'xlim',[0 size(data,2)],'ylim',[0 size(data,1)])
+    % proofreading buttons visibility set to off
     set(handles.add_label_button,'Visible','off')
     set(handles.remove_label,'Visible','off')
     set(handles.save_label_button,'Visible','off')
@@ -262,19 +275,23 @@ function segmentation_button_Callback(hObject, eventdata, handles)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% ADENOVIRUSES SEGMENTATION
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% checks if a file is selected
 if isempty(handles.dispChoice)
     return
 end
 
+% proofreading buttons visibility setting
+% adenoviruses
 set(handles.add_label_button,'Visible','on')
 set(handles.remove_label,'Visible','on')
 set(handles.save_label_button,'Visible','on')
-
+% debris
 set(handles.Add_debris_button,'Visible','off')
 set(handles.Remove_debris_button,'Visible','off')
 set(handles.Save_whole_label,'Visible','off')
 
-
+% get image from the memory
 indx = handles.indx;
 data = handles.data{indx};
 
@@ -284,7 +301,6 @@ Imad = imadjust(data);
 %% Median filtering
 J = medfilt2(Imad,[15 15]);
 
-
 %% Selection of low intensity areas
 th = round(max(J(:))/1.5);
 J(J>th)=max(J(:));
@@ -293,7 +309,6 @@ J(J<=th)=0;
 J=~logical(J);
 J = imdilate(J,true(15));
 J = imfill(J,'holes');
-
 J = bwareaopen(J,2000);
 
 Image = data;
@@ -301,14 +316,15 @@ Image(J==0) = 0;
 Imad(J==0) = 0;
 
 %% Hough Transform
-[centers, radii, metric] = imfindcircles(Imad,[16 50],'EdgeThreshold',0.0001,'ObjectPolarity','bright','Sensitivity',0.87);
+[centers, radii, metric] = imfindcircles(Imad,[16 50],'EdgeThreshold',...
+    0.0001,'ObjectPolarity','bright','Sensitivity',0.87);
 centers = round(centers);
 
 Imad = imadjust(data);
 
 %% Removing candidates od adenoviruses which do not have dar area around
 
-if length(centers)>70 %before70  %if lot of FP change it to lower
+if length(centers)>70  %if lot of FP change it to lower
     for i = 1:length(centers)
         
         x1 = centers(i,2)-100;
@@ -319,21 +335,17 @@ if length(centers)>70 %before70  %if lot of FP change it to lower
         if x1<1
             x1=1;
         end
-        
         if y1<1
             y1=1;
         end
-        
         if x2>size(Imad,2)
             x2=size(Imad,2);
         end
-        
         if y2>size(Imad,1)
             y2=size(Imad,1);
         end
 
         candidate = Imad(x1:x2,y1:y2);
-
         h = imhist(candidate);
         [int,peak] = max(h);
         if peak >50
@@ -350,8 +362,8 @@ numbers = find(centers(:,1));
 centers = centers(numbers,:);
 radii = nonzeros(radii);
 
+% creating label
 mask = zeros(size(Imad));
-
 for i = 1:size(centers,1)
     circ = drawcircle('Center',centers(i,:),'Radius',radii(i));
     BW = createMask(circ);
@@ -359,8 +371,7 @@ for i = 1:size(centers,1)
     mask(BW)=i;
 end
 
-
-
+% saving to the memory
 handles.virus.centers = centers;
 handles.virus.radii = radii;
 handles.virus.mask = mask;
@@ -369,15 +380,14 @@ guidata(hObject, handles);
 Disp(hObject, eventdata, handles)
 
 function Disp(hObject, eventdata, handles)
+% displays the detected adenoviruses
 indx = handles.indx;
 data = handles.data{indx};
-
 Imad = imadjust(data);
 imshow(Imad)
 
 centers = handles.virus.centers;
 radii = handles.virus.radii;
-
 viscircles(centers, radii,'EdgeColor','r');
 
 % --- Executes on button press in add_label_button.
@@ -385,17 +395,18 @@ function add_label_button_Callback(hObject, eventdata, handles)
 % hObject    handle to add_label_button (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+% checks if adenovirus detection exists
 if isempty(handles.virus)
     return
 end
 
-indx = handles.indx;
-data = handles.data{indx};
-
+% restores data from the memory
 centers = handles.virus.centers;
 radii = handles.virus.radii;
 mask = handles.virus.mask;
 
+% draws an ellipse
 h = imellipse;
 pos = round(getPosition(h));
 BW = createMask(h);
@@ -403,13 +414,14 @@ delete(h)
 mask(BW)=max(mask(:))+1;
 center = round([pos(1)+pos(3)/2, pos(2)+pos(4)/2]);
 radius = pos(3)/2;
+% add drawn ellipse to the list of adenoviruses
 centers = [centers;center];
 radii = [radii; radius];
 
+% saves updated adenovirus setection to the memory
 handles.virus.centers = centers;
 handles.virus.radii = radii;
 handles.virus.mask = mask;
-
 guidata(hObject, handles);
 Disp(hObject, eventdata, handles)
 
@@ -419,18 +431,20 @@ function remove_label_Callback(hObject, eventdata, handles)
 % hObject    handle to remove_label (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+% checks if adenovirus detection exists
 if isempty(handles.virus)
     return
 end
 
+% restores data from the memory
+indx = handles.indx;
+data = handles.data{indx};
 centers = handles.virus.centers;
 radii = handles.virus.radii;
 mask = handles.virus.mask;
 
-indx = handles.indx;
-data = handles.data{indx};
-
-
+% removes selected adenoviruses
 [y,x] = getpts; y = round(y(:,1)); x = round(x(:,1));
 index = [];
 for i = 1:length(x)
@@ -445,18 +459,15 @@ for i = 1:length(x)
             radii(index(i)) = 0;
         end
         mask(mask==index(i))=0;
-          
     else
         return
     end
 end
 
-
+% saves updated adenovirus setection to the memory
 handles.virus.centers = centers;
 handles.virus.radii = radii;
 handles.virus.mask = mask;
-
-
 guidata(hObject, handles);
 Disp(hObject, eventdata, handles)
 
@@ -465,16 +476,18 @@ function save_label_button_Callback(hObject, eventdata, handles)
 % hObject    handle to save_label_button (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+% checks if adenovirus detection exists
 if isempty(handles.virus)
     return
 end
 
-centers = handles.virus.centers;
-radii = handles.virus.radii;
+% restores data from the memory
 mask = handles.virus.mask;
-
 indx = handles.indx;
 name = handles.file{indx};
+
+% saving
 name = [name(1:end-8), '_target.mat'];
 save(name,'mask', '-v7.3')
 
@@ -489,32 +502,33 @@ function segmentation_debris_Callback(hObject, eventdata, handles)
 %% DEBRIS SEGMENTATION
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% checks if a file is selected
 if isempty(handles.dispChoice)
     return
 end
 
+% proofreading buttons visibility setting
+% adenovires
 set(handles.add_label_button,'Visible','off')
 set(handles.remove_label,'Visible','off')
 set(handles.save_label_button,'Visible','off')
-
+% debris
 set(handles.Add_debris_button,'Visible','on')
 set(handles.Remove_debris_button,'Visible','on')
 set(handles.Save_whole_label,'Visible','on')
 
 f = waitbar(0.1,'Debris Segmentation in process...');
 
+% restore data from the memory
 indx = handles.indx;
 data = handles.data{indx};
 
 %% Histogram adjustment
-
 Imad = imadjust(data);
 
 %% Maximally stable extremal regions features detection
 
 regions = detectMSERFeatures(Imad,'RegionAreaRange',[10 1500], 'ThresholdDelta',1);
-%regions = detectMSERFeatures(Imad,'RegionAreaRange',[50 3000], 'ThresholdDelta',0.1, 'MaxAreaVariation', 0.75);
-
 mask = zeros(size(Imad));
 for i = 1:length(regions.PixelList)
     ind = sub2ind(size(Imad),regions.PixelList{i,1}(:,2),regions.PixelList{i,1}(:,1));
@@ -522,8 +536,6 @@ for i = 1:length(regions.PixelList)
 end
 
 waitbar(0.2,f)
-
-
 %% Filling holes in the segmentation
 mask = imfill(mask,'holes');
 
@@ -533,7 +545,6 @@ m2 = bwlabel(m1,4);
 mask = imdilate(m2,true(3));
 
 waitbar(0.3,f)
-
 %% Loading the mask of adenoviruses segmentation
 [file,path] = uigetfile('*.mat','Load adenovirus mask');
 adenovir = importdata(fullfile(path,file));
@@ -541,16 +552,13 @@ adenovir = importdata(fullfile(path,file));
 %% Removing false detection of debris in position of adenoviruses
 mask(logical(imdilate(adenovir,true(6))))=0;
 
-
 %% Segmentation od rods
 stats = regionprops(mask,'Area','MajorAxisLength','MinorAxisLength');
-
 maj = [stats.MajorAxisLength];
 min = [stats.MinorAxisLength];
 
 non_Cidx = (maj>60);
 non_Cidx2 = (min<30);
-
 non_C = mask;
 
 for i = 1:length(non_Cidx)
@@ -559,19 +567,14 @@ for i = 1:length(non_Cidx)
     end
 end
 rods = non_C;
-
 mask(logical(rods)) = 0;
-
 waitbar(0.5,f)
 
-%% Division of the debris into smaller segments 
-
+%% Removing really small regions
 stats = regionprops(mask,'Area');
 areas = cat(1,stats.Area);
 standev = std(areas);
-
 big_Aidx = (areas>standev);
-
 big_A = mask;
 
 for i = 1:length(big_Aidx)
@@ -581,91 +584,26 @@ for i = 1:length(big_Aidx)
 end
 
 waitbar(0.6,f)
-
+%% Division of the debris into smaller segments 
 I = imgaussfilt(Imad,2);
-
 reg_max_big_A = imregionalmax(I);
 reg_max_big_A(big_A == 0)=0;
-
 D = bwdist(reg_max_big_A);
 DL = watershed(D);
-
 mask2 = logical(mask);
 mask2(DL==0)=0;
+
+%% Division of too close segments
 mask2 = bwareaopen(mask2, 50);
-
-
 m1 = imerode(mask2,true(3));
 m2 = bwlabel(m1,4);
 big_Debris = imdilate(m2,true(3));
 
-%% Possible clustering testing
-
-% stats = regionprops(big_Debris,'Area','MajorAxisLength','MinorAxisLength','Eccentricity','Solidity','Perimeter');
-% areas = cat(1,stats.Area);
-% major = cat(1,stats.MajorAxisLength);
-% minor = cat(1,stats.MinorAxisLength);
-% ecc = cat(1,stats.Eccentricity);
-% sol = cat(1,stats.Solidity);
-% allPerimeters = [stats.Perimeter];
-% allAreas = [stats.Area];
-% circ = (4*allAreas*pi)./(allPerimeters.^2);
-% 
-% vectors = [normalize(areas)'; normalize(major)'; normalize(minor)'; normalize(ecc)'; normalize(sol)'; normalize(circ)];
-% 
-% for i = 1:4
-%     for j = 2:5
-%         for k = 3:6
-%             figure
-%             scatter3(vectors(i,:),vectors(j,:),vectors(k,:))
-%             switch i
-%                 case 1
-%                     x = 'Areas';
-%                 case 2
-%                     x = 'Major Axis Length';
-%                 case 3
-%                     x = 'Minor Axis Length';
-%                 case 4
-%                     x = 'Eccentricity';
-%             end
-%             switch j
-%                 case 5
-%                     y = 'Solidity';
-%                 case 2
-%                     y = 'Major Axis Length';
-%                 case 3
-%                     y = 'Minor Axis Length';
-%                 case 4
-%                     y = 'Eccentricity';
-%             end
-%             switch k
-%                 case 5
-%                     z = 'Solidity';
-%                 case 6
-%                     z = 'Circularity';
-%                 case 3
-%                     z = 'Minor Axis Length';
-%                 case 4
-%                     z = 'Eccentricity';
-%             end
-%             
-%             
-%             
-%             xlabel(x)
-%             ylabel(y)
-%             zlabel(z)
-%         end
-%     end
-% end
-
 %% Division of debris into 2 groups: small and big debris based on a area threshold
-
+waitbar(0.7,f)
 stats = regionprops(big_Debris,'Area');
 areas = cat(1,stats.Area);
-
 big_Debris_idx = (areas>=200);
-
-waitbar(0.7,f)
 
 for i = 1:length(big_Debris_idx)
     if big_Debris_idx(i)==1
@@ -674,24 +612,18 @@ for i = 1:length(big_Debris_idx)
        big_Debris(big_Debris==i)=1; 
     end
 end
-
-waitbar(0.9,f)
-
 mask2 = big_Debris;
 
+waitbar(0.9,f)
 %% Finalizing the mask
-
-%add rods
+%add rods and adenoviruses
 mask2(logical(rods))=3;
 mask2(logical(adenovir))=7;
-
 handles.label = mask2;
 
 %edges
 J = imerode(mask2,true(6));
 mask2 = mask2-J;
-
-
 
 waitbar(1,f)
 
@@ -710,88 +642,48 @@ function Open_exst_label_Callback(hObject, eventdata, handles)
 % hObject    handle to Open_exst_label (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+% checks if a file is selected
 if isempty(handles.indx)
     f = warndlg('Select file in pop-up menu','Warning');
     return
 end
 
+% dialog box
 [File, pathname]=uigetfile('*.mat', 'Select label to load:');
 
 if size(File,2) == 1
     return
 end
 
+% proofreading buttons visibility setting
+% adenoviruses
 set(handles.add_label_button,'Visible','off')
 set(handles.remove_label,'Visible','off')
 set(handles.save_label_button,'Visible','off')
-
+% debris
 set(handles.Add_debris_button,'Visible','on')
 set(handles.Remove_debris_button,'Visible','on')
 set(handles.Save_whole_label,'Visible','on')
 
+% importing data
 mask = importdata(fullfile(pathname,File));
-% %% temporarly
-% label = zeros(size(mask));
-% label(mask==7)=7;
-% mask(mask==7)=0;
-% mask = logical(mask);
-% mask = bwlabel(mask,4);
-% 
-% %remove small
-% stats = regionprops(mask,'Area','MajorAxisLength','MinorAxisLength');
-% areas = cat(1,stats.Area);
-% small_obj = (areas<20);
-% for i = 1:length(small_obj)
-%     if small_obj(i)==1
-%         mask(mask==i)=0;
-%     end
-% end
-% 
-% %rods
-% maj = [stats.MajorAxisLength];
-% min = [stats.MinorAxisLength];
-% non_Cidx = (maj>60);
-% non_Cidx2 = (min<30);
-% 
-% for i = 1:length(non_Cidx)
-%     if non_Cidx(i)==1 && non_Cidx2(i)==1 
-%         label(mask==i)=3;
-%         mask(mask==i)=0;
-%     end
-% end
-% 
-% %small vs big debris
-% mask = bwlabel(logical(mask),4);
-% stats = regionprops(mask,'Area');
-% areas = cat(1,stats.Area);
-% big_Debris_idx = (areas>=200);
-% 
-% for i = 1:length(big_Debris_idx)
-%     if big_Debris_idx(i)==1
-%         label(mask==i)=2;
-%     else
-%        label(mask==i)=1; 
-%     end
-% end
-
-
-%rest
 label = mask;
 handles.label = label;
 
-J = imerode(label,true(8));
-label_d = label-J;
-
+% getting original image
 indx = handles.indx;
 data = handles.data{indx};
 Imad = imadjust(data);
+
+% Visualization
+J = imerode(label,true(8));
+label_d = label-J;
 
 axes(handles.Display)
 imshow(Imad,[]); hold on;
 Lrgb = label2rgb(label_d,'lines', 'k');
 himage = imshow(Lrgb); himage.AlphaData = 0.5;
-
-
 guidata(hObject, handles);
 
 
@@ -800,17 +692,22 @@ function Add_debris_button_Callback(hObject, eventdata, handles)
 % hObject    handle to Add_debris_button (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+% checks if a segmentation label exists
 if isempty(handles.label)
     return
 end
 
+% restoring data
 indx = handles.indx;
 data = handles.data{indx};
-
 [r,c] = size(data);
 zoom = handles.zoom.number;
+
+% get the location of the zoomed window
 [r1,r2,c1,c2] = get_window(r,c,zoom);
 
+% changing window view
 if zoom == 1
     set(handles.zoom_next,'Visible', 'on')
     Disp_window(hObject, eventdata, handles, r1, r2, c1, c2)
@@ -833,79 +730,13 @@ for i= 1:length(x)
     point(x(i),y(i))=1;
 end
 
+% dilating drawn region
 BW = imdilate(point,strel('disk',5));
-
-% %point dilatated
-% [y,x] = getpts; y = round(y(:,1)); x = round(x(:,1));
-% 
-% point = zeros(size(data));
-% for i= 1:length(x)
-%     x(i) = x(i)+r1-1;
-%     y(i) = y(i)+c1-1;
-%     point(x(i),y(i))=1;
-% end
-% 
-% BW = imdilate(point,strel('disk',5));
-
-%seeded region growing
-%BW = segCroissRegion(250,data,x,y);
-
-%acrive contour
-%BW = activecontour(data,point,'Chan-Vese','SmoothFactor',0.7, 'ContractionBias', -0.5);
-
-%fast marching method
-% W = graydiffweight(data, logical(point), 'GrayDifferenceCutoff', 300);
-% thresh = 0.001;
-% [BW, D] = imsegfmm(W, logical(point), thresh);
-
 new_idx = find(BW);
 
+% visualization
 label = handles.label;
 label(new_idx)=1;
-handles.label = label;
-guidata(hObject, handles);
-Disp_window(hObject, eventdata, handles, r1, r2, c1, c2)
-
-
-
-
-% --- Executes on button press in Remove_debris_button.
-function Remove_debris_button_Callback(hObject, eventdata, handles)
-% hObject    handle to Remove_debris_button (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-if isempty(handles.label)
-    return
-end
-
-indx = handles.indx;
-data = handles.data{indx};
-
-[r,c] = size(data);
-zoom = handles.zoom.number;
-[r1,r2,c1,c2] = get_window(r,c,zoom);
-
-if zoom == 1
-    set(handles.zoom_next,'Visible', 'on')
-    set(handles.Display_2,'Units', 'normalized');
-    set(handles.Display_2,'Position', [0.23 0.2 0.32 0.75]);
-    set(handles.Display,'Position', [0.55 0.2 0.32 0.75]);
-    Disp_window(hObject, eventdata, handles, r1, r2, c1, c2)
-end
-
-[y,x] = getpts; y = round(y(:,1)); x = round(x(:,1));
-x = x+r1-1;
-y = y+c1-1;
-
-mask = bwlabel(logical(handles.label));
-
-for i =1:length(x)
-    idx = mask(x(i,1),y(i,1));
-    mask(mask==idx)=0;
-end
-
-label = handles.label;
-label(mask==0)=0;
 handles.label = label;
 guidata(hObject, handles);
 Disp_window(hObject, eventdata, handles, r1, r2, c1, c2)
@@ -933,9 +764,8 @@ Lrgb = label2rgb(mask_crop,'lines', 'k');
 himage = imshow(Lrgb); himage.AlphaData = 0.5;
 set(handles.Display,'xlim',[0 size(mask_crop,2)],'ylim',[0 size(mask_crop,1)])
 
-
-
 function [r1,r2,c1,c2] = get_window(r,c,zoom)
+% This function returns corners' indexes of the zoomed image.
 step_r = round(r/3);
 step_c = round(c/3);
 switch zoom
@@ -986,37 +816,21 @@ switch zoom
         c2 = c;
 end
 
-
-% --- Executes on button press in Save_whole_label.
-function Save_whole_label_Callback(hObject, eventdata, handles)
-% hObject    handle to Save_whole_label (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-if isempty(handles.label)
-    return
-end
-
-label = handles.label;
-
-indx = handles.indx;
-name = handles.file{indx};
-name = [name(1:13), '_label.mat'];
-[filename, filepath] = uiputfile('*.mat', 'Save the final segmentation:',name);
-FileName = fullfile(filepath, filename);
-save(FileName,'label', '-v7.3')
-
 % --- Executes on button press in zoom_next.
 function zoom_next_Callback(hObject, eventdata, handles)
 % hObject    handle to zoom_next (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+% restoring data
 indx = handles.indx;
 data = handles.data{indx};
-
 [r,c] = size(data);
+% changing the order of the window to the following one
 zoom = handles.zoom.number+1;
 handles.zoom.number = zoom;
 
+% getting the corners' indexes for the cropped window
 if zoom == 10
     set(handles.zoom_next,'Visible', 'off')
     r1 = 1;
@@ -1029,20 +843,93 @@ if zoom == 10
 else
     [r1,r2,c1,c2] = get_window(r,c,zoom);
 end
-    
+ 
+% saving changed data and updating view with the new window
 guidata(hObject, handles);
 Disp_window(hObject, eventdata, handles, r1, r2, c1, c2)
 
+% --- Executes on button press in Remove_debris_button.
+function Remove_debris_button_Callback(hObject, eventdata, handles)
+% hObject    handle to Remove_debris_button (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% checks if a segmentation label exists
+if isempty(handles.label)
+    return
+end
+
+% restoring data
+indx = handles.indx;
+data = handles.data{indx};
+[r,c] = size(data);
+zoom = handles.zoom.number;
+
+% get the location of the zoomed window
+[r1,r2,c1,c2] = get_window(r,c,zoom);
+
+if zoom == 1
+    set(handles.zoom_next,'Visible', 'on')
+    Disp_window(hObject, eventdata, handles, r1, r2, c1, c2)
+    set(handles.Display_2,'Units', 'normalized');
+    set(handles.Display_2,'Position', [0.23 0.2 0.32 0.75]);
+    set(handles.Display,'Position', [0.55 0.2 0.32 0.75]);
+    
+end
+
+% Selecting the regions to remove
+[y,x] = getpts; y = round(y(:,1)); x = round(x(:,1));
+x = x+r1-1;
+y = y+c1-1;
+
+% removing the regions of the selected points
+mask = bwlabel(logical(handles.label));
+for i =1:length(x)
+    idx = mask(x(i,1),y(i,1));
+    mask(mask==idx)=0;
+end
+label = handles.label;
+label(mask==0)=0;
+
+% saving updated label to the memory + diplay updated window
+handles.label = label;
+guidata(hObject, handles);
+Disp_window(hObject, eventdata, handles, r1, r2, c1, c2)
+
+% --- Executes on button press in Save_whole_label.
+function Save_whole_label_Callback(hObject, eventdata, handles)
+% hObject    handle to Save_whole_label (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% checks if a segmentation label exists
+if isempty(handles.label)
+    return
+end
+
+% restoring label and data name
+label = handles.label;
+indx = handles.indx;
+name = handles.file{indx};
+name = [name(1:13), '_label.mat'];
+
+% saving
+[filename, filepath] = uiputfile('*.mat', 'Save the final segmentation:',name);
+FileName = fullfile(filepath, filename);
+save(FileName,'label', '-v7.3')
 
 % --- Executes on button press in Save_screen.
 function Save_screen_Callback(hObject, eventdata, handles)
 % hObject    handle to Save_screen (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+% checks if a file is selected in the pop-up menu
 if isempty(handles.indx)
     return
 end
 
+% restoring the data name + adding suffix
 indx = handles.indx;
 filename = handles.file{indx};
 if isempty(handles.label)
@@ -1050,4 +937,6 @@ if isempty(handles.label)
 else
     filename = [filename(1:13) '_segmentation'];
 end
+
+% exposrtin screenshot
 export_fig(handles.Display, filename);
